@@ -2,6 +2,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 
 public class Pedido implements Comparable<Pedido> {
 
@@ -40,8 +41,26 @@ public class Pedido implements Comparable<Pedido> {
 		this.formaDePagamento = formaDePagamento;
 	}
 	
+	/** Construtor para reconstrução a partir de arquivo — usa ID explícito sem incrementar ultimoID. */
+	Pedido(int id, LocalDate dataPedido, int formaDePagamento) {
+		idPedido = id;
+		itensDePedido = new ItemDePedido[MAX_ITENS_DE_PEDIDO];
+		quantItensDePedido = 0;
+		this.dataPedido = dataPedido;
+		this.formaDePagamento = formaDePagamento;
+	}
+
 	public ItemDePedido[] getItensDoPedido() {
 		return itensDePedido;
+	}
+
+	public LocalDate getDataPedido() { return dataPedido; }
+	public int getQuantItensDoPedido() { return quantItensDePedido; }
+	public int getFormaDePagamento() { return formaDePagamento; }
+
+	/** Garante que ultimoID não repita IDs já carregados do arquivo. */
+	public static void atualizarUltimoID(int novoUltimoID) {
+		if (novoUltimoID > ultimoID) ultimoID = novoUltimoID;
 	}
 	
 	public ItemDePedido existeNoPedido(Produto produto) {
@@ -103,6 +122,27 @@ public class Pedido implements Comparable<Pedido> {
         return valorPedidoBD.doubleValue();
 	}
 	
+	/**
+	 * Gera representação em texto do pedido para persistência em arquivo.
+	 * Formato: idPedido;dataPedido;formaPagamento;quantItens
+	 * Seguido de uma linha por item: idProduto;quantidade;precoVenda
+	 */
+	public String gerarDadosTexto() {
+		DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+		StringBuilder sb = new StringBuilder();
+		sb.append(idPedido).append(";")
+		  .append(fmt.format(dataPedido)).append(";")
+		  .append(formaDePagamento).append(";")
+		  .append(quantItensDePedido).append("\n");
+		for (int i = 0; i < quantItensDePedido; i++) {
+			sb.append(itensDePedido[i].getProduto().hashCode()).append(";")
+			  .append(itensDePedido[i].getQuantidade()).append(";")
+			  .append(String.format(Locale.US, "%.4f", itensDePedido[i].getPrecoVenda()))
+			  .append("\n");
+		}
+		return sb.toString();
+	}
+
 	/**
      * Representação, em String, do pedido.
      * Contém um cabeçalho com sua data e o número de itens de pedido no pedido.
