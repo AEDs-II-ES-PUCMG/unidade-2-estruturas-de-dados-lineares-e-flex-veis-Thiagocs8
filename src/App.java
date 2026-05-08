@@ -27,11 +27,14 @@ public class App {
     /** Quantidade de produtos cadastrados atualmente no vetor */
     static int quantosProdutos = 0;
 
-    /** Pilha de pedidos finalizados */
+    /** Pilha de pedidos finalizados (acesso LIFO — pedido mais recente no topo) */
     static Pilha<Pedido> pilhaPedidos = new Pilha<>();
 
-    /** Pilha de produtos mais recentemente pedidos (Tarefa 2) */
+    /** Pilha de produtos mais recentemente pedidos */
     static Pilha<Produto> pilhaProdutosRecentes = new Pilha<>();
+
+    /** Fila de pedidos aguardando processamento (acesso FIFO — pedido mais antigo na frente) */
+    static Fila<Pedido> filaPedidos = new Fila<>();
 
     static void limparTela() {
         System.out.print("\033[H\033[2J");
@@ -64,9 +67,7 @@ public class App {
         return valor;
     }
 
-    /** Imprime o menu principal, lê a opção do usuário e a retorna (int).
-     * @return Um inteiro com a opção do usuário.
-     */
+    /** Imprime o menu principal, lê a opção do usuário e a retorna (int). */
     static int menu() {
         cabecalho();
         System.out.println("1 - Listar todos os produtos");
@@ -74,19 +75,15 @@ public class App {
         System.out.println("3 - Procurar por um produto, por nome");
         System.out.println("4 - Iniciar novo pedido");
         System.out.println("5 - Fechar pedido");
-        System.out.println("6 - Listar produtos dos pedidos mais recentes");
+        System.out.println("6 - Listar produtos dos pedidos mais recentes (Pilha)");
+        System.out.println("7 - Processar lote de pedidos da fila (Fila)");
         System.out.println("0 - Sair");
         System.out.print("Digite sua opção: ");
         return Integer.parseInt(teclado.nextLine());
     }
 
     /**
-     * Lê os dados de um arquivo-texto e retorna um vetor de produtos. Arquivo-texto no formato
-     * N  (quantidade de produtos) <br/>
-     * tipo;descrição;preçoDeCusto;margemDeLucro;[dataDeValidade] <br/>
-     * Deve haver uma linha para cada um dos produtos. Retorna um vetor vazio em caso de problemas com o arquivo.
-     * @param nomeArquivoDados Nome do arquivo de dados a ser aberto.
-     * @return Um vetor com os produtos carregados, ou vazio em caso de problemas de leitura.
+     * Lê os dados de um arquivo-texto e retorna um vetor de produtos.
      */
     static Produto[] lerProdutos(String nomeArquivoDados) {
 
@@ -118,9 +115,7 @@ public class App {
     	return produtosCadastrados;
     }
 
-    /** Localiza um produto no vetor de produtos cadastrados, a partir do código de produto informado pelo usuário, e o retorna.
-     *  Em caso de não encontrar o produto, retorna null
-     */
+    /** Localiza um produto pelo código informado pelo usuário. Retorna null se não encontrado. */
     static Produto localizarProduto() {
 
     	Produto produto = null;
@@ -139,10 +134,7 @@ public class App {
         return produto;
     }
 
-    /** Localiza um produto no vetor de produtos cadastrados, a partir do nome de produto informado pelo usuário, e o retorna.
-     *  A busca não é sensível ao caso. Em caso de não encontrar o produto, retorna null
-     *  @return O produto encontrado ou null, caso o produto não tenha sido localizado no vetor de produtos cadastrados.
-     */
+    /** Localiza um produto pela descrição informada pelo usuário. Retorna null se não encontrado. */
     static Produto localizarProdutoDescricao() {
 
     	Produto produto = null;
@@ -185,11 +177,7 @@ public class App {
         }
     }
 
-    /**
-     * Inicia um novo pedido.
-     * Permite ao usuário escolher e incluir produtos no pedido.
-     * @return O novo pedido
-     */
+    /** Inicia um novo pedido interativamente. */
     public static Pedido iniciarPedido() {
 
     	int formaPagamento = lerOpcao("Digite a forma de pagamento do pedido, sendo 1 para pagamento à vista e 2 para pagamento a prazo", Integer.class);
@@ -216,9 +204,8 @@ public class App {
     }
 
     /**
-     * Finaliza um pedido: imprime o resumo, empilha em pilhaPedidos e registra
-     * cada produto do pedido em pilhaProdutosRecentes.
-     * @param pedido O pedido que deve ser finalizado.
+     * Finaliza um pedido: imprime o resumo, empilha em pilhaPedidos,
+     * enfileira em filaPedidos (Tarefa 2) e registra produtos em pilhaProdutosRecentes.
      */
     public static void finalizarPedido(Pedido pedido) {
 
@@ -231,8 +218,8 @@ public class App {
     	System.out.println(pedido);
 
     	pilhaPedidos.empilhar(pedido);
+    	filaPedidos.enfileirar(pedido);   // Tarefa 2 — enfileira para processamento
 
-    	// Empilha cada produto do pedido em pilhaProdutosRecentes (Tarefa 2)
     	ItemDePedido[] itens = pedido.getItensDoPedido();
     	for (int i = 0; i < pedido.getQuantItensDoPedido(); i++) {
     		pilhaProdutosRecentes.empilhar(itens[i].getProduto());
@@ -240,7 +227,7 @@ public class App {
     }
 
     /**
-     * Lista os K produtos mais recentemente pedidos usando subPilha (Tarefa 3).
+     * Lista os K produtos mais recentemente pedidos usando subPilha (Pilha — Tarefa 3 da unidade).
      */
     public static void listarProdutosPedidosRecentes() {
 
@@ -275,16 +262,49 @@ public class App {
     }
 
     /**
-     * Salva todos os pedidos da pilhaPedidos em arquivo texto ao encerrar a aplicação.
+     * Extrai e exibe um lote de pedidos da filaPedidos usando extrairLote (Fila — Tarefa 3).
+     */
+    public static void listarLotePedidos() {
+
+    	cabecalho();
+
+    	if (filaPedidos.vazia()) {
+    		System.out.println("A fila de pedidos está vazia — nenhum pedido aguardando processamento.");
+    		return;
+    	}
+
+    	int disponivel = filaPedidos.tamanho();
+    	Integer k = lerOpcao(
+    		"Quantos pedidos deseja processar da fila? (aguardando: " + disponivel + ")",
+    		Integer.class);
+
+    	if (k == null || k <= 0) {
+    		System.out.println("Número inválido.");
+    		return;
+    	}
+
+    	int aProcessar = Math.min(k, disponivel);
+    	Fila<Pedido> lote = filaPedidos.extrairLote(k);
+
+    	System.out.println("\n=== LOTE DE " + aProcessar + " PEDIDO(S) EXTRAÍDO(S) DA FILA ===");
+    	int pos = 1;
+    	while (!lote.vazia()) {
+    		Pedido p = lote.desenfileirar();
+    		System.out.println("\n--- Pedido " + pos++ + " ---");
+    		System.out.println(p);
+    	}
+    	System.out.println("\nPedidos restantes na fila: " + filaPedidos.tamanho());
+    }
+
+    /**
+     * Salva todos os pedidos da pilhaPedidos em arquivo ao encerrar a aplicação.
      */
     static void salvarPedidos() {
 
-    	// Esvazia a pilha para uma lista temporária
     	ArrayList<Pedido> lista = new ArrayList<>();
     	while (!pilhaPedidos.vazia()) {
     		lista.add(pilhaPedidos.desempilhar());
     	}
-    	// Restaura a pilha (empilha em ordem inversa para manter o topo)
     	for (int i = lista.size() - 1; i >= 0; i--) {
     		pilhaPedidos.empilhar(lista.get(i));
     	}
@@ -301,7 +321,7 @@ public class App {
     }
 
     /**
-     * Carrega pedidos do arquivo de persistência para pilhaPedidos e pilhaProdutosRecentes.
+     * Carrega pedidos do arquivo e reconstrói pilhaPedidos, filaPedidos e pilhaProdutosRecentes.
      */
     static void carregarPedidos() {
 
@@ -328,7 +348,6 @@ public class App {
     				String[] partesItem = leitor.nextLine().trim().split(";");
     				int idProduto = Integer.parseInt(partesItem[0]);
     				int quantidade = Integer.parseInt(partesItem[1]);
-    				double preco = Double.parseDouble(partesItem[2]);
 
     				Produto produto = null;
     				for (int k = 0; k < quantosProdutos; k++) {
@@ -345,11 +364,15 @@ public class App {
     			if (id > maxId) maxId = id;
     		}
 
-    		// Empilha do mais antigo ao mais recente para que o mais recente fique no topo
+    		// Reconstrói pilhaPedidos: mais recente no topo (lista[0] = mais recente)
     		for (int i = lista.size() - 1; i >= 0; i--) {
     			pilhaPedidos.empilhar(lista.get(i));
     		}
-    		// Reconstrói pilhaProdutosRecentes na mesma ordem cronológica
+    		// Reconstrói filaPedidos: mais antigo na frente (lista[N-1] = mais antigo)
+    		for (int i = lista.size() - 1; i >= 0; i--) {
+    			filaPedidos.enfileirar(lista.get(i));
+    		}
+    		// Reconstrói pilhaProdutosRecentes
     		for (int i = lista.size() - 1; i >= 0; i--) {
     			ItemDePedido[] itens = lista.get(i).getItensDoPedido();
     			for (int j = 0; j < lista.get(i).getQuantItensDoPedido(); j++) {
@@ -374,10 +397,9 @@ public class App {
 
         carregarPedidos();
 
-        // ===== TAREFA 1: Testes Preliminares da Pilha =====
-        System.out.println("\n===== TAREFA 1: TESTES PRELIMINARES DA PILHA =====\n");
+        // ===== TAREFA 1 (PILHA): Testes Preliminares da Pilha =====
+        System.out.println("\n===== TAREFA 1 (PILHA): TESTES PRELIMINARES =====\n");
 
-        // Dígitos do número de matrícula sem repetição
         // TODO: substitua pelos dígitos do seu número de matrícula
         int[] digitosMatricula = {2, 0, 2, 3, 1, 5, 4, 7, 6, 8};
 
@@ -408,7 +430,51 @@ public class App {
         System.out.println("  Reempilhado: " + desempilhado);
         System.out.println("  Pilha final: " + pilhaMatricula);
 
-        System.out.println("\n== Fim dos testes preliminares ==\n");
+        System.out.println("\n== Fim dos testes da Pilha ==");
+        pausa();
+
+        // ===== TAREFA 1 (FILA): Testes Preliminares da Fila =====
+        System.out.println("\n===== TAREFA 1 (FILA): TESTES PRELIMINARES =====\n");
+
+        // TODO: substitua pelo seu primeiro e segundo nome
+        String primeiroNome = "Thiago";
+        String segundoNome  = "Costa";
+
+        Fila<Character> filaChars = new Fila<>();
+
+        System.out.println("Enfileirando caracteres do primeiro nome: \"" + primeiroNome + "\"");
+        for (char c : primeiroNome.toCharArray()) {
+            filaChars.enfileirar(c);
+            System.out.println("  Enfileirado: '" + c + "'");
+        }
+
+        System.out.println("Enfileirando caracteres do segundo nome: \"" + segundoNome + "\"");
+        for (char c : segundoNome.toCharArray()) {
+            filaChars.enfileirar(c);
+            System.out.println("  Enfileirado: '" + c + "'");
+        }
+
+        System.out.println("\nConteúdo da fila:");
+        System.out.println("  " + filaChars);
+        System.out.println("  Tamanho: " + filaChars.tamanho());
+
+        System.out.println("\n-- Teste de contarOcorrencias --");
+        char[] charsParaContar = {'a', 'o', 'T', 'z'};
+        for (char c : charsParaContar) {
+            System.out.println("  Ocorrências de '" + c + "': " + filaChars.contarOcorrencias(c));
+        }
+
+        System.out.println("\n-- Teste de desenfileirar --");
+        char desenfileirado = filaChars.desenfileirar();
+        System.out.println("  Desenfileirado: '" + desenfileirado + "'");
+        System.out.println("  Fila após desenfileirar: " + filaChars);
+
+        System.out.println("\n-- Teste de enfileirar de volta --");
+        filaChars.enfileirar(desenfileirado);
+        System.out.println("  Reenfileirado: '" + desenfileirado + "'");
+        System.out.println("  Fila final: " + filaChars);
+
+        System.out.println("\n== Fim dos testes da Fila ==\n");
         pausa();
 
         Pedido pedido = null;
@@ -424,6 +490,7 @@ public class App {
                 case 4 -> pedido = iniciarPedido();
                 case 5 -> { finalizarPedido(pedido); pedido = null; }
                 case 6 -> listarProdutosPedidosRecentes();
+                case 7 -> listarLotePedidos();
             }
             if (opcao != 0) pausa();
         }while(opcao != 0);
