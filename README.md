@@ -4,7 +4,7 @@ Oficinas e atividade pontuada realizada em AEDs II, tendo em vista estruturas de
 
 ## Alunos 
 
-Thiago Costa Soares
-Thomás Ramos Oliveira
+# Thiago Costa Soares
+# Thomás Ramos Oliveira
 
 
